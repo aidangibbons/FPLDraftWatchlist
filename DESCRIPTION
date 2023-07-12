@@ -1,0 +1,13 @@
+Package: FPLDraftWatchlist
+Title: FPL Draft Watchlist
+Version: 0.0.0.9000
+Authors@R: person('Aidan', 'Gibbons', email = 'aidangibbons@mail.com', role = c('cre', 'aut'))
+Description: Shiny app to create, alter and save an FPL draft watchlist.
+License: MIT + file LICENSE
+Imports: 
+    config (>= 0.3.1),
+    golem (>= 0.4.1),
+    shiny (>= 1.7.4)
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.1
