@@ -1,0 +1,4 @@
+docker build -f Dockerfile_base --progress=plain -t fpldraftwatchlist_base .
+docker build -f Dockerfile --progress=plain -t fpldraftwatchlist:latest .
+docker run -p 80:80 fpldraftwatchlist:latest
+# then go to 127.0.0.1:80

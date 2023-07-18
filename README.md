@@ -4,6 +4,10 @@
 # FPLDraftWatchlist
 
 <!-- badges: start -->
+
+[![Lifecycle:
+experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![R-CMD-check](https://github.com/aidangibbons/FPLDraftWatchlist/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/aidangibbons/FPLDraftWatchlist/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 The goal of FPLDraftWatchlist is to …
@@ -21,7 +25,7 @@ You can install the development version of FPLDraftWatchlist like so:
 This is a basic example which shows you how to solve a common problem:
 
 ``` r
-library(FPLDraftWatchlist)
+# library(FPLDraftWatchlist)
 ## basic example code
 ```
 

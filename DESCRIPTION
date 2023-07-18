@@ -5,20 +5,28 @@ Authors@R:
     person("Aidan", "Gibbons", , "aidangibbons@mail.com", role = c("cre", "aut"))
 Description: Shiny app to create, alter and save an FPL draft watchlist.
 License: MIT + file LICENSE
+URL: https://github.com/aidangibbons/FPLDraftWatchlist
+BugReports: https://github.com/aidangibbons/FPLDraftWatchlist/issues
 Imports: 
     config (>= 0.3.1),
+    dplyr,
+    DT,
+    glue,
     golem (>= 0.4.1),
-    shiny (>= 1.7.4)
+    magrittr,
+    shiny (>= 1.7.4),
+    shinyalert,
+    tibble,
+    yaml
 Suggests: 
     knitr,
     rmarkdown,
     spelling,
     testthat (>= 3.0.0)
+VignetteBuilder: 
+    knitr
 Config/testthat/edition: 3
 Encoding: UTF-8
 Language: en-US
 LazyData: true
 RoxygenNote: 7.2.3
-VignetteBuilder: knitr
-URL: https://github.com/aidangibbons/FPLDraftWatchlist
-BugReports: https://github.com/aidangibbons/FPLDraftWatchlist/issues

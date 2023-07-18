@@ -1,0 +1,11 @@
+cd deploy
+open docker desktop
+docker build -f Dockerfile_base --progress=plain -t fpldraftwatchlist_base .
+docker build -f Dockerfile --progress=plain -t fpldraftwatchlist:latest .
+docker run -dp 80:80 fpldraftwatchlist:latest
+# then go to 127.0.0.1:80
+docker tag fpldraftwatchlist aidangibbons/fpldraftwatchlist:latest
+docker push aidangibbons/fpldraftwatchlist:latest
+
+fly launch
+fly deploy -i aidangibbons/fpldraftwatchlist

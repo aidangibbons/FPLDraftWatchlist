@@ -8,9 +8,34 @@ app_ui <- function(request) {
   tagList(
     # Leave this function for adding external resources
     golem_add_external_resources(),
+    # tags$head(tags$style(HTML('
+    #   .modal.in .modal-dialog{
+    #     width:80%;
+    #     height:80%;
+    #     margin-top: 10%;
+    #     margin-left: 20%;
+    #   }
+    #
+    #   .modal-content{
+    #     width:75%;
+    #     height:75%;
+    #   }
+    # '))),
     # Your application UI logic
     fluidPage(
-      h1("FPLDraftWatchlist")
+      titlePanel(
+        mod_title_bar_ui("header")
+      ),
+      fluidRow(
+        column(
+          width = 4,
+          mod_main_table_ui("watchlist")
+          ),
+        column(
+          width = 8,
+          mod_player_statistics_ui("statistics")
+        )
+      )
     )
   )
 }

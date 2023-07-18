@@ -22,6 +22,10 @@ attachment::att_amend_desc()
 ## Create a module infrastructure in R/
 golem::add_module(name = "title_bar", with_test = TRUE) # Name of the module
 golem::add_module(name = "main_table", with_test = TRUE) # Name of the module
+golem::add_module(name = "player_statistics", with_test = TRUE)
+golem::add_module(name = "load_player_dataset", with_test = T)
+golem::add_module(name = "save_watchlist", with_test = T)
+golem::add_module(name = "splash", with_test = T)
 
 ## Add helper functions ----
 ## Creates fct_* and utils_*
@@ -67,29 +71,16 @@ usethis::use_github()
 usethis::use_github_action()
 # Chose one of the three
 # See https://usethis.r-lib.org/reference/use_github_action.html
-usethis::use_github_action_check_release()
-usethis::use_github_action_check_standard()
-usethis::use_github_action_check_full()
+# usethis::use_github_action_check_release()
+# usethis::use_github_action_check_standard()
+# usethis::use_github_action_check_full()
 # Add action for PR
-usethis::use_github_action_pr_commands()
+# usethis::use_github_action_pr_commands()
 
-# Travis CI
-usethis::use_travis()
-usethis::use_travis_badge()
 
-# AppVeyor
-usethis::use_appveyor()
-usethis::use_appveyor_badge()
+## Use Pipe
+usethis::use_pipe()
 
-# Circle CI
-usethis::use_circleci()
-usethis::use_circleci_badge()
-
-# Jenkins
-usethis::use_jenkins()
-
-# GitLab CI
-usethis::use_gitlab_ci()
 
 # You're now set! ----
 # go to dev/03_deploy.R
