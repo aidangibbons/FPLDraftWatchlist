@@ -11,7 +11,7 @@
 mod_main_table_ui <- function(id){
   ns <- NS(id)
   tagList(
-    DTOutput(ns("tblWatchlist"))
+    uiOutput(ns("uiMainTable"))
   )
 }
 
@@ -21,339 +21,263 @@ mod_main_table_ui <- function(id){
 #' @importFrom DT renderDT datatable JS dataTableProxy formatStyle
 #' @importFrom yaml read_yaml
 #' @import dplyr
-mod_main_table_server <- function(id, df){
+#' @importFrom golem print_dev
+mod_main_table_server <- function(id, credentials, df_raw, ord){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
-    output$tblWatchlist <- renderDT({
-      df %>%
-        datatable_watchlist()
+    output$uiMainTable <- renderUI({
+      req(credentials()$user_auth)
+      print_dev("render main table UI")
+      tagList(
+        fluidRow(
+          column(width = 9,
+                 div(style = "margin-top: -12px;", p("Click and drag handle to reorder rows.")),
+                 div(style = "margin-top: -12px;", p("Click 'Ranking' cells to edit manually.")),
+                 div(style = "margin-top: -12px;", p("Click on player names to view data comparison."))
+          ),
+          column(width = 3,
+                 div(style = "display:inline-block; float:right", actionButton(ns('btnClearRows'), 'Clear Rows'))
+          )
+        ),
+        DTOutput(ns("tblWatchlist")),
+        hr()
+      )
+    })
+
+    df_tbl <- df_raw %>%
+      select(test, rank, draft_rank, web_name, position, team_name_short)
+
+    df <- reactiveVal(df_tbl)
+    slct <- reactiveVal(NULL)
+    df_update <- reactiveVal(df_tbl)
+    table_order <- reactiveVal(1:nrow(df_tbl))
+    max_rows <- 3
+    selectable_col = 4
+    editable_col = 2
+
+    observeEvent(ord(), {
+      req(credentials()$user_auth)
+      print_dev("update table with new ordering")
+
+      out <- list(
+        df = df_tbl %>%
+          slice(ord()),
+        sel = NULL,
+        dont_update_proxy = T
+      )
+
+      df_update(out)
 
     })
 
-    table_order <- reactiveVal(value = NULL)
-    watchlist_id = reactiveVal(value = NULL)
-
+    # observeEvent(ord(), {
+    #   req(credentials()$user_auth)
+    #   print_dev("update table with new ordering")
+    #
+    #   out <- list(
+    #     df = df_raw %>%
+    #       slice(ord()),
+    #     sel = NULL
+    #   )
+    #   df_update(out)
+    #
+    # })
 
     proxy <- dataTableProxy("tblWatchlist")
 
+    callback <- c(
+      "table.on('row-reorder', function(e, details, edit){",
+      "  var oldRows = [], newRows = [];",
+      "  for(let i=0; i < details.length; ++i){",
+      "    oldRows.push(details[i].oldData);",
+      "    newRows.push(details[i].newData);",
+      "  }",
+      sprintf("  Shiny.setInputValue('%s', {old: oldRows, new: newRows});", session$ns("rowreorder")),
+      "});",
+      "table.on('click', 'td', function() {
+        if ($(this).get(0)._DT_CellIndex.column == 2) {
+          $(this).dblclick();
+        }
+  });"
+    )
+
+
+    output$tblWatchlist <- renderDT(server = T, {
+
+      req(credentials()$user_auth)
+      print_dev("create main table DT")
+      df_tbl %>%
+        slice(ord()) %>%
+        mutate(rank = 1:n()) %>%
+        datatable(
+          escape = F,
+          filter = "none",
+          colnames = c(NULL, "", "Ranking", "Draft Rank", "Player", "Position", "Team"),
+          selection = list(mode = "multiple", target = "cell",
+                           selectable = cbind(1:nrow(df_tbl), rep(selectable_col, nrow(df_tbl)))),
+          editable = list(target = 'cell', disable = list(columns = (0:(ncol(df_tbl)))[-(editable_col + 1)])),
+          extensions = c('RowReorder'),
+          options = list(order = list(list(0, 'asc')),
+                         rowReorder = TRUE,
+                         pageLength = 30,
+                         dom = "frtip",
+                         ordering = F,
+                         columnDefs = list(list(visible=FALSE,
+                                                targets = c(0)),
+                                           list(className = 'dt-center',
+                                                targets = "_all"))),
+          callback=JS(callback)
+        )
+    })
+
+    # update proxy with edited cells
+    observeEvent(input$tblWatchlist_cell_edit, {
+      print_dev("enter cell edit observe")
+      row_selection <- isolate(slct())
+      inp_edit <- input$tblWatchlist_cell_edit
+
+      if (is.null(inp_edit)) {return()}
+
+      out <- calculate_edit(inp_edit, df, editable_col)
+      df_update(out)
+      print_dev("complete cell edit observe")
+    })
+
+    # update proxy and selection reactive, when rows are selected
+    observe({
+      req(credentials()$user_auth)
+      print_dev("enter cell selection observe")
+      sel_raw <- input$tblWatchlist_cells_selected
+
+      if (length(sel_raw) == 0) {return()}
+      rows <- sel_raw[, 1]
+
+      if (length(rows) > max_rows) {
+        # drop the second-last clicked row
+        rows <- rows[c(1:(max_rows - 1), length(rows))]
+        cells <- cbind(rows, rep(selectable_col, length(rows)))
+        DT::selectCells(proxy, cells)
+      }
+      slct(rows)
+      print_dev("complete cell selection observe")
+    })
+
+
     observeEvent(input$rowreorder, {
-      old <- unlist(input$rowreorder$old)
-      new <- unlist(input$rowreorder$new)
-      dat[new, ] <- dat[old, ]
-      replaceData(proxy, dat, resetPaging = FALSE)
+      print_dev("enter rowreorder observe")
+
+      row_selection <- isolate(slct())
+      inp_reorder <- input$rowreorder
+
+      if (is.null(inp_reorder) | length(inp_reorder) == 0) {return()}
+
+      out <- calculate_reorder(inp_reorder, df, row_selection)
+      df_update(out)
+      print_dev("complete rowreorder observe")
     })
 
-    selected_players <- reactive({
-      input$tblWatchlist_rows_selected
+    observeEvent(df_update(), ignoreInit = T, {
+      print_dev("enter df_update observe")
+      out <- df_update()
+
+      if (is.null(out) | length(out) == 0) {return()}
+      if (!identical(out$df$rank, 1:length(out$df$rank))) {
+        out$df$rank <- 1:length(out$df$rank)
+      }
+
+      df(out$df)
+      table_order(rank(out$df$draft_rank))
+
+      if (!("dont_update_table" %in% names(out))) {
+        print_dev("updating proxy with replaceData")
+        DT::replaceData(proxy, out$df, resetPaging = F, clearSelection = "none")
+      }
+
+      if (!identical(slct(), out$sel)) {
+        slct(out$sel)
+        rows <- slct()
+        cells <- cbind(rows, rep(selectable_col, length(rows)))
+        print_dev("updating proxy with selectCells")
+        DT::selectCells(proxy, cells)
+      }
+
+      print_dev("complete df_update observe")
     })
 
-    base_table = reactive({
-      df
+    observeEvent(input$btnClearRows, {
+      print_dev("enter btn clear rows observe")
+      slct(NULL)
+      DT::selectRows(proxy, data.frame())
+      print_dev("complete btn clear rows observe")
+    })
+
+
+    df_out <- reactive({
+      print_dev("enter df_out reactive")
+      df_raw %>%
+        slice(table_order())
+    })
+
+    sel_out <- reactive({
+      print_dev("enter sel_out reactive")
+      df_tbl$draft_rank[table_order()][slct()]
     })
 
     return(
       list(
-        table = base_table,
-        selected_players = selected_players
+        order = df_out,
+        selected_players = sel_out
       )
     )
-
-
-
-
-    ## TODO implement alllll this
-
-    # ## watchlist tab ####
-
-    #
-
-    #
-
-    #
-    # observeEvent(input$btnNewWatchlist, {
-    #
-    #   print(glue("New watchlist requested"))
-    #
-    #   table_order(NULL)
-    #
-    #   max_watchlist_id = drop_dir(glue("{drop_dir}/watchlists"), dtoken = token) %>%
-    #     pull(name) %>%
-    #     tools::file_path_sans_ext() %>%
-    #     as.numeric() %>%
-    #     max
-    #
-    #   watchlist_id(max_watchlist_id + 1)
-    #
-    #   updateTextInput(inputId = "txtWatchlistID", value = watchlist_id())
-    #
-    #   print(glue("Watchlist {watchlist_id()} created"))
-    #
-    #   df <- load_ranks()[[game_type()]] %>%
-    #     arrange(ranking_position) %>%
-    #     mutate(Change = draft_rank - ranking_position) %>%
-    #     select("Player" = id, "Name" = web_name, "Team" = team_name_short, "Pos" = position,
-    #            "Draft Rank" = draft_rank, "Community Ranking" = ranking_position, id = id)
-    #
-    #   n_imgs_to_show = min(nrow(df), 120)
-    #
-    #   df$Player[1:n_imgs_to_show] <- glue("imgs/{cur_season}/players_small/{df$Player[1:n_imgs_to_show]}.png") %>%
-    #     as.character()
-    #
-    #   df <- df %>%
-    #     mutate(Player = ifelse(str_detect(Player, "imgs"),
-    #                            Player,
-    #                            ""))
-    #
-    #
-    #   df$Player[1:n_imgs_to_show] <- df$Player[1:n_imgs_to_show] %>%
-    #     map_chr(img_uri, height = 55)
-    #
-    #   save_watchlist(df, id = watchlist_id())
-    #
-    #   table_order(1:nrow(df))
-    #
-    #   shinyalert(title = "New watchlist created", text = glue("Watchlist ID: {watchlist_id()} \n\nRemember this ID and enter it next time to load the saved watchlist."), type = "success")
-    #
-    #   print(glue("Watchlist {watchlist_id()} saved"))
-    # })
-    #
-    # rankings_df <- reactive({
-    #   ## TODO if there is a table already present, save it before loading the new one
-    #
-    #   if (input$btnLoadWatchlist > 0 | input$btnNewWatchlist > 0) {
-    #     table_order(NULL)
-    #     watchlist_id(input$txtWatchlistID)
-    #
-    #     print(glue("Load watchlist request: {input$txtWatchlistID}"))
-    #     df <- load_watchlist(watchlist_id())
-    #     print(glue("Watchlist {watchlist_id()} loaded"))
-    #
-    #   } else {
-    #     print(glue("No watchlist selected, output empty table"))
-    #
-    #     tbl_colnames = c("id", "web_name", "team_name_short", "position", "draft_rank", "ranking_position")
-    #     df <- as_tibble(matrix(nrow = 0, ncol = length(tbl_colnames)), .name_repair = ~ tbl_colnames)
-    #
-    #
-    #     df <- df %>%
-    #       mutate(Change = draft_rank - ranking_position) %>%
-    #       select("Player" = id, "Name" = web_name, "Team" = team_name_short, "Pos" = position,
-    #              "Draft Rank" = draft_rank, "Community Ranking" = ranking_position, id = id)
-    #
-    #     n_imgs_to_show = min(nrow(df), 120)
-    #
-    #     df$Player[1:n_imgs_to_show] <- glue("imgs/{cur_season}/players_small/{df$Player[1:n_imgs_to_show]}.png") %>%
-    #       as.character()
-    #
-    #     df <- df %>%
-    #       mutate(Player = ifelse(str_detect(Player, "imgs"),
-    #                              Player,
-    #                              ""))
-    #
-    #
-    #     df$Player[1:n_imgs_to_show] <- df$Player[1:n_imgs_to_show] %>%
-    #       map_chr(img_uri, height = 55)
-    #
-    #     df
-    #   }
-    #
-    #   table_order(1:nrow(df))
-    #
-    #   df
-    # })
-    #
-    # watchlist_df <- reactive({
-    #
-    #   if (input$btnLoadWatchlist > 0) {
-    #
-    #     print(glue("Loading up to date community rankings"))
-    #
-    #     community_rankings <- load_ranks()[[game_type()]]
-    #
-    #     df <- rankings_df() %>%
-    #       select(-"Community Ranking") %>%
-    #       left_join(community_rankings %>%
-    #                   select(id, "Community Ranking" = ranking_position),
-    #                 by = "id") %>%
-    #       select("Player", "Name", "Team", "Pos",
-    #              "Draft Rank", "Community Ranking", id)
-    #
-    #   } else {
-    #
-    #     df = rankings_df()
-    #   }
-    #
-    #   df
-    # })
-    #
-    # output$tblWatchlist <- renderDT(server = F, {
-    #
-    #   watchlist_df() %>%
-    #     datatable(
-    #       escape = F,
-    #       filter = "top",
-    #       colnames = c("Personal Ranking" = 1),  # add the name
-    #       extensions = c('RowReorder'),
-    #       selection = 'none',
-    #       options = list(order = list(list(0, 'asc')),
-    #                      rowReorder = TRUE,
-    #                      pageLength = nrow(watchlist_df()),
-    #                      dom = "frtip",
-    #                      columnDefs = list(list(orderable = T,
-    #                                             className = "reorder",
-    #                                             targets = 0),
-    #                                        list(visible=FALSE,
-    #                                             targets = "id"),
-    #                                        list(orderable = F,
-    #                                             targets = "_all"),
-    #                                        list(className = 'dt-center',
-    #                                             targets = "_all"))),
-    #       callback=JS(
-    #         "// pass on data to R
-    # table.on('row-reorder', function(e, details, changes) {
-    #     Shiny.onInputChange('table_row_reorder', JSON.stringify(details));
-    # });")
-    #     ) %>%
-    #     formatStyle(columns = c("Community Ranking"), fontWeight = 'bold', `text-align` = 'center', `font-size` = "1.3em")
-    #
-    # })
-    #
-    # # observe row reordering event - sent from javascript function
-    # observeEvent(input$table_row_reorder, {
-    #
-    #   info <- input$table_row_reorder
-    #
-    #   # print(info)
-    #   # print(table_order())
-    #
-    #   # error checking
-    #   if(is.null(info) | class(info) != 'character') { return() }
-    #
-    #   info <- read_yaml(text=info)
-    #   # info will be empty if a reorder event fired but no row orders changed
-    #   if(length(info) == 0) { return() }
-    #
-    #   # load our order vectors
-    #   .order <- table_order()
-    #   .new_order <- .order
-    #
-    #   # for each updated row in the info object, update the order vector
-    #   for(i in 1:length(info)) {
-    #     j <- info[[i]]
-    #     .new_order[(j$newPosition + 1)] <- .order[(j$oldPosition + 1)]
-    #   }
-    #
-    #   # update our order vector's reactive value
-    #   table_order(.new_order)
-    # })
-    #
-    #
-    # copy_of_watchlist <- reactive({
-    #   rankings_df() %>%
-    #     filter(id %in% rankings_df()$id) %>%
-    #     slice(table_order())
-    # })
-    #
-    # observe({
-    #   print(glue("Current tab: {input$tabs}"))
-    # })
-    #
-    # # on close events ####
-    # # upload comparisons when session closed
-    # session$onSessionEnded(function() {
-    #
-    #   print(glue("End of session"))
-    #
-    #   wl <- isolate(copy_of_watchlist())
-    #
-    #   if (nrow(wl) > 0 & isolate(input$chkSaveOnClose)) {
-    #     print(glue("Saving Watchlist {isolate(watchlist_id())}"))
-    #     save_watchlist(wl, id = isolate(watchlist_id()))
-    #   }
-    #
-    #   print(glue("Load comparisons"))
-    #   comp_df <- load_comparisons(drop = F)
-    #   comp_drop_df <- load_comparisons(drop = T)
-    #
-    #   comps <- list(
-    #     "Classic" = bind_rows(comp_df$Classic,
-    #                           comp_drop_df$Classic) %>%
-    #       distinct,
-    #     "H2H" = bind_rows(comp_df$H2H,
-    #                       comp_drop_df$H2H) %>%
-    #       distinct
-    #
-    #   )
-    #
-    #   print(glue("Save appended comparisons"))
-    #   comps %>%
-    #     save_comparisons(drop = T)
-    #
-    #
-    #   print(glue("Update ranks - Classic"))
-    #   comps$Classic %>%
-    #     calculate_ranks(type = "Classic")
-    #
-    #   print(glue("Update ranks - H2H"))
-    #
-    #   comps$H2H %>%
-    #     calculate_ranks(type = "H2H")
-    #
-    #
-    #   print(glue("End of session save complete"))
-    #   ## TODO   update coummnity rankings within watchlist before saving (or when loading?)
-    #
-    # })
-
-
   })
 }
 
 ## functions ####
+calculate_reorder <- function (r, df, sel) {
+  print_dev("reorder entered")
+  old <- as.numeric(unlist(r$old))
+  new <- as.numeric(unlist(r$new))
 
-datatable_watchlist <- function (df) {
+  if (is.null(old) | is.null(new)) {return()}
+  if (length(old) + length(new) == 0) {return()}
 
-  callback <- c(
-    "table.on('row-reorder', function(e, details, edit){",
-    "  var oldRows = [], newRows = [];",
-    "  for(let i=0; i < details.length; ++i){",
-    "    oldRows.push(details[i].oldData);",
-    "    newRows.push(details[i].newData);",
-    "  }",
-    "  Shiny.setInputValue(ns('rowreorder'), {old: oldRows, new: newRows});",
-    "});"
-  )
+  df_orig <- isolate(df())
+  df_reordered <- df_orig
+  df_reordered[new, ] <- df_reordered[old, ]
 
+  if (length(sel) > 0) {
+    row_selection_orig <- df_orig$rank[sel]
+    row_selection_new <- unique(which(df_reordered$rank %in% c(row_selection_orig)))
+  } else {
+    row_selection_new <- NULL
+  }
 
-  df %>%
-    datatable(
-      escape = F,
-      filter = "top",
-      colnames = c("", "Personal Ranking", names(df[-c(1, 2)])),
-      extensions = c('RowReorder'),
-      selection = 'multiple',
-      options = list(order = list(list(0, 'asc')),
-                     rowReorder = TRUE,
-                     pageLength = nrow(df),
-                     dom = "frtip",
-                     columnDefs = list(list(orderable = F,
-                                            className = "reorder",
-                                            targets = 1),
-                                       list(visible=FALSE,
-                                            targets = 0),
-                                       list(orderable = F,
-                                            targets = "_all"),
-                                       list(className = 'dt-center',
-                                            targets = "_all"))),
-      callback=JS(callback)
-    ) %>%
-    formatStyle(columns = c("Community Ranking"), fontWeight = 'bold', `text-align` = 'center', `font-size` = "1.3em")
-
+  print_dev("reorder finished")
+  list(df = df_reordered, sel = row_selection_new)
 }
 
-## To be copied in the UI
-# mod_main_table_ui("main_table_1")
+calculate_edit <- function (ed, df, editable_col = 2) {
+  print_dev("edit entered")
+  if (ed$col != editable_col) {return()}
+  if (ed$row == ed$value) {return()}
 
-## To be copied in the server
-# mod_main_table_server("main_table_1")
+  ed$value <- if (ed$value > ed$row) {
+    ed$value + 0.1
+  } else {
+    ed$value - 0.1
+  }
+
+  df_orig <- isolate(df())
+  df_replaced <- df_orig
+  df_replaced$rank[ed$row] <- ed$value
+  prev_rank <- df_orig$rank[ed$row]
+  df_replaced$rank[df_orig$rank >= ed$value & df_orig$rank < prev_rank] <- df_replaced$rank[df_orig$rank >= ed$value & df_orig$rank < prev_rank] + 1
+  df_ranked <- arrange(df_replaced, rank)
+  df_ranked <- mutate(df_ranked, rank = round(rank))
+
+  ed$value <- round(ed$value)
+
+  print_dev("edit finished")
+  list(df = df_ranked, sel = ceiling(ed$value))
+}

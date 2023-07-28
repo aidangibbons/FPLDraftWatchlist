@@ -1,5 +1,6 @@
 cd deploy
 open docker desktop
+## MAYBE delete renv line in dockerfile & dockerfile_base if code hangs at this point
 docker build -f Dockerfile_base --progress=plain -t fpldraftwatchlist_base .
 docker build -f Dockerfile --progress=plain -t fpldraftwatchlist:latest .
 docker run -dp 80:80 fpldraftwatchlist:latest

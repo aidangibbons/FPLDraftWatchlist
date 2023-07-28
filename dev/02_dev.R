@@ -25,7 +25,7 @@ golem::add_module(name = "main_table", with_test = TRUE) # Name of the module
 golem::add_module(name = "player_statistics", with_test = TRUE)
 golem::add_module(name = "load_player_dataset", with_test = T)
 golem::add_module(name = "save_watchlist", with_test = T)
-golem::add_module(name = "splash", with_test = T)
+golem::add_module(name = "login", with_test = T)
 
 ## Add helper functions ----
 ## Creates fct_* and utils_*

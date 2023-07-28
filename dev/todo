@@ -1,0 +1,31 @@
+todo
+- [ ] saving
+ - [ ] get table order from table to be saved
+ - [ ] set table order from saved
+  -- maybe use reactive vals for these
+
+- [ ] resetting selection resets whole plot (e.g. order and filtering)
+ -- can we preserve these too programatically?
+
+feedback
+
+- [ ] Login page works well - could do with some instructions or quick context to suggest you can create an account at that window; seems like you already need an account at current
+
+- [ ] Comparison tool is great. Could be quite beneficial if you could pull the players next five fixtures or so and use the FDR maybe...
+
+- [ ] Advanced stats would be ideal - maybe even if there's a prediction model you could pull from... fplform maybe... idk whether that's allowed or not though
+
+- [ ] Draft rank - drag feature really nice, would be cool to have a way to type number in so not dragging all the way up the screen or down
+
+- [ ] Ability to have specific position watchlists would be good
+
+- [ ] Can't see text when typing in filters (can see something has been entered by the (x) but no text to say what's been typed
+
+- [x] Would be nice to be able to reset/deselect all in comparison - have to scroll all the way through to deselect individually
+
+- [x] Issue where you select more than 9+ players in the list to compare but only 8 display on the comparison field despite showing 9+ selected
+-- [ ] documentation around this?
+
+- [x] Pages and entry limiter would be ideal to prevent big long list/having to scroll far down (seems like it's something already considered)
+
+- [x] Refresh and re-login works great

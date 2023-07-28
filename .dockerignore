@@ -1,0 +1,27 @@
+# flyctl launch added from .github\.gitignore
+.github\**\*.html
+
+# flyctl launch added from .gitignore
+**\.Rproj.user
+**\.Rhistory
+**\.Rdata
+**\.httr-oauth
+**\.DS_Store
+**\.quarto
+**\inst\doc
+doc
+Meta
+
+# flyctl launch added from renv\.gitignore
+renv\**\library
+renv\**\local
+renv\**\cellar
+renv\**\lock
+renv\**\python
+renv\**\sandbox
+renv\**\staging
+
+# flyctl launch added from vignettes\.gitignore
+vignettes\**\*.html
+vignettes\**\*.R
+fly.toml
