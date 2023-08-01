@@ -29,9 +29,16 @@ mod_title_bar_server <- function(id, con, credentials, df_watchlist){
             width = 4,
             h1("FPL Draft Watchlist")
           ),
+          column(width = 1, offset = 6,
+                 shinyjs::hidden(
+                   div(
+                     checkboxInput(ns("chkSaveOnClose"), value = T, label = HTML("Save watchlist when<br/>closing app?")),
+                     style="font-size:50%;"
+                   )
+                 )
+          ),
           column(
             width = 1,
-            offset = 7,
             actionButton(
               inputId =  ns("btnSaveWatchlist"),
               label = "Save Watchlist",
@@ -91,8 +98,13 @@ mod_title_bar_server <- function(id, con, credentials, df_watchlist){
 
     })
 
+    SaveOnClose <- reactive({input$chkSaveOnClose})
 
-
+    return(
+      list(
+        SaveOnClose = SaveOnClose
+      )
+    )
   })
 }
 

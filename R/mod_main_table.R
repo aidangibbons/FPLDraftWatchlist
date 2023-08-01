@@ -21,14 +21,13 @@ mod_main_table_ui <- function(id){
 #' @importFrom DT renderDT datatable JS dataTableProxy formatStyle
 #' @importFrom yaml read_yaml
 #' @import dplyr
-#' @importFrom golem print_dev
 mod_main_table_server <- function(id, credentials, df_raw, ord){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
     output$uiMainTable <- renderUI({
       req(credentials()$user_auth)
-      print_dev("render main table UI")
+      print_debug("render main table UI")
       tagList(
         fluidRow(
           column(width = 9,
@@ -58,7 +57,7 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
 
     observeEvent(ord(), {
       req(credentials()$user_auth)
-      print_dev("update table with new ordering")
+      print_debug("update table with new ordering")
 
       out <- list(
         df = df_tbl %>%
@@ -73,7 +72,7 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
 
     # observeEvent(ord(), {
     #   req(credentials()$user_auth)
-    #   print_dev("update table with new ordering")
+    #   print_debug("update table with new ordering")
     #
     #   out <- list(
     #     df = df_raw %>%
@@ -106,7 +105,7 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
     output$tblWatchlist <- renderDT(server = T, {
 
       req(credentials()$user_auth)
-      print_dev("create main table DT")
+      print_debug("create main table DT")
       df_tbl %>%
         slice(ord()) %>%
         mutate(rank = 1:n()) %>%
@@ -133,7 +132,7 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
 
     # update proxy with edited cells
     observeEvent(input$tblWatchlist_cell_edit, {
-      print_dev("enter cell edit observe")
+      print_debug("enter cell edit observe")
       row_selection <- isolate(slct())
       inp_edit <- input$tblWatchlist_cell_edit
 
@@ -141,13 +140,13 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
 
       out <- calculate_edit(inp_edit, df, editable_col)
       df_update(out)
-      print_dev("complete cell edit observe")
+      print_debug("complete cell edit observe")
     })
 
     # update proxy and selection reactive, when rows are selected
     observe({
       req(credentials()$user_auth)
-      print_dev("enter cell selection observe")
+      print_debug("enter cell selection observe")
       sel_raw <- input$tblWatchlist_cells_selected
 
       if (length(sel_raw) == 0) {return()}
@@ -160,12 +159,12 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
         DT::selectCells(proxy, cells)
       }
       slct(rows)
-      print_dev("complete cell selection observe")
+      print_debug("complete cell selection observe")
     })
 
 
     observeEvent(input$rowreorder, {
-      print_dev("enter rowreorder observe")
+      print_debug("enter rowreorder observe")
 
       row_selection <- isolate(slct())
       inp_reorder <- input$rowreorder
@@ -174,11 +173,11 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
 
       out <- calculate_reorder(inp_reorder, df, row_selection)
       df_update(out)
-      print_dev("complete rowreorder observe")
+      print_debug("complete rowreorder observe")
     })
 
     observeEvent(df_update(), ignoreInit = T, {
-      print_dev("enter df_update observe")
+      print_debug("enter df_update observe")
       out <- df_update()
 
       if (is.null(out) | length(out) == 0) {return()}
@@ -190,7 +189,7 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
       table_order(rank(out$df$draft_rank))
 
       if (!("dont_update_table" %in% names(out))) {
-        print_dev("updating proxy with replaceData")
+        print_debug("updating proxy with replaceData")
         DT::replaceData(proxy, out$df, resetPaging = F, clearSelection = "none")
       }
 
@@ -198,29 +197,29 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
         slct(out$sel)
         rows <- slct()
         cells <- cbind(rows, rep(selectable_col, length(rows)))
-        print_dev("updating proxy with selectCells")
+        print_debug("updating proxy with selectCells")
         DT::selectCells(proxy, cells)
       }
 
-      print_dev("complete df_update observe")
+      print_debug("complete df_update observe")
     })
 
     observeEvent(input$btnClearRows, {
-      print_dev("enter btn clear rows observe")
+      print_debug("enter btn clear rows observe")
       slct(NULL)
       DT::selectRows(proxy, data.frame())
-      print_dev("complete btn clear rows observe")
+      print_debug("complete btn clear rows observe")
     })
 
 
     df_out <- reactive({
-      print_dev("enter df_out reactive")
+      print_debug("enter df_out reactive")
       df_raw %>%
         slice(table_order())
     })
 
     sel_out <- reactive({
-      print_dev("enter sel_out reactive")
+      print_debug("enter sel_out reactive")
       df_tbl$draft_rank[table_order()][slct()]
     })
 
@@ -235,7 +234,7 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
 
 ## functions ####
 calculate_reorder <- function (r, df, sel) {
-  print_dev("reorder entered")
+  print_debug("reorder entered")
   old <- as.numeric(unlist(r$old))
   new <- as.numeric(unlist(r$new))
 
@@ -253,12 +252,12 @@ calculate_reorder <- function (r, df, sel) {
     row_selection_new <- NULL
   }
 
-  print_dev("reorder finished")
+  print_debug("reorder finished")
   list(df = df_reordered, sel = row_selection_new)
 }
 
 calculate_edit <- function (ed, df, editable_col = 2) {
-  print_dev("edit entered")
+  print_debug("edit entered")
   if (ed$col != editable_col) {return()}
   if (ed$row == ed$value) {return()}
 
@@ -278,6 +277,6 @@ calculate_edit <- function (ed, df, editable_col = 2) {
 
   ed$value <- round(ed$value)
 
-  print_dev("edit finished")
+  print_debug("edit finished")
   list(df = df_ranked, sel = ceiling(ed$value))
 }

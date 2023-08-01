@@ -69,7 +69,7 @@ mod_player_statistics_server <- function(id, credentials, sel, df){
     output$tblSelectedPlayers <- render_gt({
       req(credentials()$user_auth)
 
-      print("player statistics render gt entered")
+      print_debug("player statistics render gt entered")
       sel_id <- sel()
 
       if (!(length(sel_id) > 0)) {
@@ -94,8 +94,12 @@ mod_player_statistics_server <- function(id, credentials, sel, df){
       filtered_df <- df$tbl %>%
         # slice(df$ord()) %>%
         mutate(img = url_player_image(code)) %>%
-        select(web_name, img, minutes, "points" = total_points, "PPG" = points_per_game, "goals" = goals_scored, assists, bonus) %>%
-        mutate(across(c(points, goals, assists, bonus), ~signif(. * 90 / minutes, 2), .names = "{col}_p90")) %>%
+        select(web_name, img,
+               minutes, "points" = total_points, "PPG" = points_per_game,
+               "goals" = goals_scored, assists, bonus,
+               "xG" = expected_goals, "xA" = expected_assists, "xGI" = expected_goal_involvements) %>%
+        mutate(across(c(everything(), -web_name, -img), as.numeric)) %>%
+        mutate(across(c(points, goals, assists, bonus, xG, xA, xGI), ~signif(. * 90 / minutes, 2), .names = "{col}_p90")) %>%
         mutate(across(everything(), as.character)) %>%
         slice(sel_id)
 

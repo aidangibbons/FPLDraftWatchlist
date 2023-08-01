@@ -19,45 +19,51 @@ mod_load_player_dataset_ui <- function(id){
 #' @noRd
 #' @importFrom tibble tibble rownames_to_column
 #' @importFrom dplyr mutate select
-mod_load_player_dataset_server <- function(id, con, credentials){
+#' @importFrom purrr map map_df
+mod_load_player_dataset_server <- function(id, con, credentials, pos_filt = "None", saved_wl){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
-    base_table <- get_player_details(url_bootstrap_static) %>%
+    set_config_variables()
+
+    bs <<- get_url_data(url_bootstrap_static)
+    bd <<- get_url_data(url_bootstrap_dynamic)
+
+    current_gw <<- get_current_gw()
+
+    team_lookup <- bs$teams %>%
+      select(id, short_name)
+
+    position_lookup <- bs$element_types %>%
+      select("element_type" = id, "position" = "singular_name_short")
+
+    next_5_fixtures <- current_gw:(current_gw + 4) %>%
+      map_df(get_gw_fixtures, team_lookup = team_lookup) %>%
+      mutate(opp = ifelse(location == "H", toupper(opp), tolower(opp))) %>%
+      rename("team_name_short" = team) %>%
+      group_by(team_id, team_name_short) %>%
+      summarise(opps = list(opp), .groups = "drop")
+
+    base_table <- bs$elements %>%
+      tibble %>%
       mutate(test = '≡') %>%
       mutate(rank = draft_rank) %>%
       select(id, test, rank, everything()) %>%
-      arrange(rank)# %>%
-      # slice(1:8)
+      arrange(rank) %>%
+      left_join(next_5_fixtures, by = c("team" = "team_id")) %>%
+      left_join(position_lookup, by = "element_type")
+    # slice(1:8)
 
+    if (!is.na(pos_filt)) {
+      base_table <- base_table %>%
+        filter(position == pos_filt) %>%
+        mutate(draft_rank = 1:n())
+    }
 
     final_tbl <- reactive({
       if (credentials()$user_auth) {
-        set_config_variables()
         user = credentials()$info$id
-
-
-
-        print(glue::glue("Attempting watchlist load for watchlist: {user}"))
-
-        tryCatch({
-          saved_watchlist <- DBI::dbGetQuery(con,
-                                             glue::glue_sql(
-                                               .con = con,
-                                               "SELECT * FROM watchlists WHERE user_id = {user}"
-                                             )
-          )
-        }, error = function(e) {
-          shinyalert(
-            title = glue::glue("Error"),
-            text = glue::glue("Error loading watchlist from database."), type = "error", immediate = T,
-            timer = 3000
-          )
-          print(glue::glue("Error loading watchlist from database."))
-          return(base_table)
-        })
-
-        print("Watchlist load successful!")
+        saved_watchlist = saved_wl()
 
         if (nrow(saved_watchlist) == 0) {
 

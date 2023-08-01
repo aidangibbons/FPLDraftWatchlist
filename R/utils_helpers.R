@@ -104,15 +104,11 @@ get_url_data <- function (url) {
     fromJSON(simplifyVector = T)
 }
 
-get_player_details <- function (url_bootstrap_static = url_bootstrap_static) {
-
-  # load the static information
-  bs_static <- get_url_data(url_bootstrap_static)
+get_player_details <- function (bs_static) {
 
   # select only constant columns if "general" is chosen
   player_details <- bs_static$elements %>%
     tibble
-
 
   # bind on team information
   player_details_team <- player_details %>%
@@ -165,11 +161,71 @@ url_player_image <- function (player_code) {paste0("https://resources.premierlea
 url_team_image <- function (team_id) {paste0("https://draft.premierleague.com/img/badges/badge_", team_id,"_40.png")}
 url_team_image_new <- function (team_id) {paste0("https://resources.premierleague.com/premierleague/badges/70/t", team_id, ".png")}
 
+
+get_gw_fixtures <- function (gw, team_lookup) {
+
+  raw_fixtures <- url_gw_fixtures(gw) %>%
+    get_url_data() %>%
+    tibble
+
+  if (nrow(raw_fixtures) == 0) {
+    return(tibble())
+  }
+
+  raw_fixtures <- raw_fixtures %>%
+    mutate(gw_id = gw) %>%
+    rename("match_id" = "id") %>%
+    select(gw_id, match_id, started, team_a, team_h, team_a_score, team_h_score, kickoff_time, finished)
+
+  bind_rows(
+    raw_fixtures %>%
+      rename("team_id" = "team_h",
+             "team_goals" = "team_h_score",
+             "opp_id" = "team_a",
+             "opp_goals" = "team_a_score") %>%
+      mutate(location = "H"),
+    raw_fixtures %>%
+      rename("team_id" = "team_a",
+             "team_goals" = "team_a_score",
+             "opp_id" = "team_h",
+             "opp_goals" = "team_h_score") %>%
+      mutate(location = "A")
+  ) %>%
+    left_join(
+      team_lookup %>%
+        rename("team" = short_name),
+      by = c("team_id" = "id")
+    ) %>%
+    left_join(
+      team_lookup %>%
+        rename("opp" = short_name),
+      by = c("opp_id" = "id")
+    )
+
+}
+
+get_current_gw <- function () {
+  gw <- bd$current_event
+
+  if (is.null(gw)) {
+    1
+  } else {
+    gw
+  }
+}
+
+# General functions ####
 img_uri <- function (x, height = 20, local = F) {
   if (local) {
     sprintf('<img src="%s" height="%i"/>', knitr::image_uri(x), height)
   } else {
     sprintf('<img src="%s" style=\"height:%i;\"/>', x, height)
 
+  }
+}
+
+print_debug <- function (t, loc = is_local) {
+  if (loc) {
+    print(t)
   }
 }

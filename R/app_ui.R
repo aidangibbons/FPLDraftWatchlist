@@ -17,7 +17,13 @@ app_ui <- function(request) {
       fluidRow(
         column(
           width = 4,
-          mod_main_table_ui("watchlist")
+          tabsetPanel(
+            tabPanel("All players", mod_main_table_ui("watchlist")),
+            tabPanel("GKP", mod_main_table_ui("wl_gkp")),
+            tabPanel("DEF", mod_main_table_ui("wl_def")),
+            tabPanel("MID", mod_main_table_ui("wl_mid")),
+            tabPanel("FWD", mod_main_table_ui("wl_fwd"))
+          )
         ),
         column(
           width = 8,

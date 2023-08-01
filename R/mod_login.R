@@ -27,7 +27,7 @@ mod_login_server <- function(id){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
-    is_local <- T
+    is_local <<- T
     print(glue::glue("Is local session: {is_local}"))
 
     con <- get_DB_connection(is_local = is_local)
@@ -50,10 +50,39 @@ mod_login_server <- function(id){
       active = reactive(credentials()$user_auth)
     )
 
+    saved_watchlist <- reactive({
+      req(credentials()$user_auth)
+      user = credentials()$info$id
+
+      print(glue::glue("Attempting watchlist load for watchlist: {user}"))
+
+      tryCatch({
+        wl <- DBI::dbGetQuery(con,
+                                           glue::glue_sql(
+                                             .con = con,
+                                             "SELECT * FROM watchlists WHERE user_id = {user}"
+                                           )
+        )
+      }, error = function(e) {
+        shinyalert(
+          title = glue::glue("Error"),
+          text = glue::glue("Error loading watchlist from database."), type = "error", immediate = T,
+          timer = 3000
+        )
+        print(glue::glue("Error loading watchlist from database."))
+        return(tibble())
+      })
+
+      print("Watchlist load successful!")
+
+      return(wl)
+    })
+
     return(
       list(
         con = con,
-        credentials = credentials
+        credentials = credentials,
+        saved_watchlist = saved_watchlist
       )
     )
   })
@@ -138,6 +167,7 @@ loginUI_custom <- function (id, title = "Please log in", user_title = "User Name
           class = "text-center",
           style = "padding-top: 0;"
         ),
+        shiny::p("Enter a username and password to create an account (or login if you already have one)."),
         shiny::textInput(
           ns("user_name"),
           shiny::tagList(
@@ -166,7 +196,7 @@ loginUI_custom <- function (id, title = "Please log in", user_title = "User Name
           shiny::div(
             id = ns("error"),
             shiny::tags$p(
-              "Invalid username or password!",
+              "Invalid username or password! If you have forgotten your password, please contact the app owner.",
               style = "color: red; font-weight: bold; padding-top: 5px;",
               class = "text-center"
             )
