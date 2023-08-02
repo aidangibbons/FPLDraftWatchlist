@@ -27,7 +27,8 @@ mod_login_server <- function(id){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
-    is_local <<- T
+    # TODO shiny_port doesn't seem to be working in the docker container
+    is_local <<- F
     print(glue::glue("Is local session: {is_local}"))
 
     con <- get_DB_connection(is_local = is_local)
@@ -58,10 +59,10 @@ mod_login_server <- function(id){
 
       tryCatch({
         wl <- DBI::dbGetQuery(con,
-                                           glue::glue_sql(
-                                             .con = con,
-                                             "SELECT * FROM watchlists WHERE user_id = {user}"
-                                           )
+                              glue::glue_sql(
+                                .con = con,
+                                "SELECT * FROM watchlists WHERE user_id = {user}"
+                              )
         )
       }, error = function(e) {
         shinyalert(

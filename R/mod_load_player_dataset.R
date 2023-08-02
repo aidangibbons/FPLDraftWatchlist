@@ -20,7 +20,7 @@ mod_load_player_dataset_ui <- function(id){
 #' @importFrom tibble tibble rownames_to_column
 #' @importFrom dplyr mutate select
 #' @importFrom purrr map map_df
-mod_load_player_dataset_server <- function(id, con, credentials, pos_filt = "None", saved_wl){
+mod_load_player_dataset_server <- function(id, con, credentials, pos_filt = NA_character_, saved_wl){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
@@ -52,18 +52,21 @@ mod_load_player_dataset_server <- function(id, con, credentials, pos_filt = "Non
       arrange(rank) %>%
       left_join(next_5_fixtures, by = c("team" = "team_id")) %>%
       left_join(position_lookup, by = "element_type")
-    # slice(1:8)
 
-    if (!is.na(pos_filt)) {
+    if (!is.na(pos_filt) & pos_filt != "all") {
+      # browser()
       base_table <- base_table %>%
-        filter(position == pos_filt) %>%
-        mutate(draft_rank = 1:n())
+        filter(position == toupper(pos_filt)) %>%
+        mutate(draft_rank = 1:n()) %>%
+        mutate(rank = draft_rank)
     }
 
     final_tbl <- reactive({
       if (credentials()$user_auth) {
         user = credentials()$info$id
-        saved_watchlist = saved_wl()
+
+        saved_watchlist = saved_wl() %>%
+          filter(watchlist_type == pos_filt)
 
         if (nrow(saved_watchlist) == 0) {
 

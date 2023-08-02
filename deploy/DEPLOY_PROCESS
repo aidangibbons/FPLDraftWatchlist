@@ -1,3 +1,5 @@
+## MAKE SURE is_local is set to F
+
 cd deploy
 open docker desktop
 ## MAYBE delete renv line in dockerfile & dockerfile_base if code hangs at this point

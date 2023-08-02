@@ -17,7 +17,8 @@ mod_title_bar_ui <- function(id){
 #' title_bar Server Functions
 #'
 #' @noRd
-mod_title_bar_server <- function(id, con, credentials, df_watchlist){
+#' @importFrom purrr map2_df
+mod_title_bar_server <- function(id, con, credentials, df_watchlist_list){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
@@ -27,7 +28,7 @@ mod_title_bar_server <- function(id, con, credentials, df_watchlist){
         fluidRow(
           column(
             width = 4,
-            h1("FPL Draft Watchlist")
+            h2("FPL Draft Watchlist")
           ),
           column(width = 1, offset = 6,
                  shinyjs::hidden(
@@ -66,6 +67,18 @@ mod_title_bar_server <- function(id, con, credentials, df_watchlist){
       # )
 
       # return(NULL)
+
+      df_watchlist <- df_watchlist_list %>%
+        map2_df(names(df_watchlist_list), function(df, nm) {
+          df() %>%
+            mutate(watchlist_type = nm) %>%
+            mutate(user_id = watchlist_id,
+                   player = id,
+                   ranking = 1:n()) %>%
+            filter(row_number() != draft_rank) %>%
+            select(watchlist_type, user_id, player, ranking, web_name) %>%
+            mutate(across(c(everything(), -watchlist_type, -web_name), as.numeric))
+        })
 
       tryCatch({
 
@@ -110,14 +123,8 @@ mod_title_bar_server <- function(id, con, credentials, df_watchlist){
 
 save_watchlist <- function (con, user_id, wl) {
 
-  values_out <- wl() %>%
-    mutate(user_id = user_id,
-           player = id,
-           ranking = 1:n()) %>%
-    filter(row_number() != draft_rank) %>%
-    select(user_id, player, ranking) %>%
-    mutate(across(everything(), as.numeric)) %>%
-    mutate(out_text = glue::glue("({user_id}, {player}, {ranking})")) %>%
+  values_out <- wl %>%
+    mutate(out_text = glue::glue("('{watchlist_type}', {user_id}, {player}, {ranking})")) %>%
     pull(out_text)
 
   if (length(values_out) == 0) {
@@ -132,9 +139,6 @@ save_watchlist <- function (con, user_id, wl) {
     return(0)
   }
 
-  # # TODO get saving working
-  # browser()
-
   DBI::dbSendQuery(
     con,
     glue::glue_sql(
@@ -145,17 +149,16 @@ save_watchlist <- function (con, user_id, wl) {
 
   res <- DBI::dbSendQuery(
     con,
-    glue::glue_sql(
+    glue::glue(
       .con = con,
-      "INSERT INTO watchlists (user_id, player, ranking)
-      SELECT user_id, player, ranking FROM watchlists
+      "INSERT INTO watchlists (watchlist_type, user_id, player, ranking)
+      SELECT watchlist_type, user_id, player, ranking FROM watchlists
       UNION
       VALUES
       {paste(values_out, collapse = ',')}
-      except
-      SELECT user_id, player, ranking FROM watchlists;"
-    ) %>%
-      gsub("'", "", .)
+      EXCEPT
+      SELECT watchlist_type, user_id, player, ranking FROM watchlists;"
+    )
   )
   print(res)
   return(1)

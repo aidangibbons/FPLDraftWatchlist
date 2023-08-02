@@ -31,7 +31,7 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
       tagList(
         fluidRow(
           column(width = 9,
-                 div(style = "margin-top: -12px;", p("Click and drag handle to reorder rows.")),
+                 div(style = "margin-top: 4px;", p("Click and drag handle to reorder rows.")),
                  div(style = "margin-top: -12px;", p("Click 'Ranking' cells to edit manually.")),
                  div(style = "margin-top: -12px;", p("Click on player names to view data comparison."))
           ),

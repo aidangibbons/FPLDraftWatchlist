@@ -10,19 +10,44 @@ app_server <- function(input, output, session) {{
 
   login_outputs <- mod_login_server("login")
 
-  base_table <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, saved_wl = login_outputs$saved_watchlist)
-  base_table_gkp <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "GKP", saved_wl = login_outputs$saved_watchlist)
-  base_table_def <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "DEF", saved_wl = login_outputs$saved_watchlist)
-  base_table_mid <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "MID", saved_wl = login_outputs$saved_watchlist)
-  base_table_fwd <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "FWD", saved_wl = login_outputs$saved_watchlist)
+  output$uiMainTableTabs <- renderUI({
+    req(login_outputs$credentials()$user_auth)
+    tagList(
+      div(style = "margin-top: -10px;", p("Note - Overall and individual position watchlists are not linked.")),
+      div(style = "margin-top: -10px;", p("Updating one won't update the other.")),
+      tabsetPanel(
+        id = "tbstMainTable",
+        tabPanel("All players", value = "all", mod_main_table_ui("watchlist")),
+        tabPanel("GKP", value = "gkp", mod_main_table_ui("wl_gkp")),
+        tabPanel("DEF", value = "def", mod_main_table_ui("wl_def")),
+        tabPanel("MID", value = "mid", mod_main_table_ui("wl_mid")),
+        tabPanel("FWD", value = "fwd", mod_main_table_ui("wl_fwd"))
+      )
+    )
+  })
+
+  base_table <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "all", saved_wl = login_outputs$saved_watchlist)
+  base_table_gkp <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "gkp", saved_wl = login_outputs$saved_watchlist)
+  base_table_def <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "def", saved_wl = login_outputs$saved_watchlist)
+  base_table_mid <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "mid", saved_wl = login_outputs$saved_watchlist)
+  base_table_fwd <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "fwd", saved_wl = login_outputs$saved_watchlist)
 
   watchlist_outputs <- mod_main_table_server("watchlist", login_outputs$credentials, df_raw = base_table$tbl, ord = base_table$ord)
-  wl_gkp_outputs <-mod_main_table_server("wl_gkp", login_outputs$credentials, df_raw = base_table$tbl, ord = base_table$ord)
-  wl_def_outputs <-mod_main_table_server("wl_def", login_outputs$credentials, df_raw = base_table$tbl, ord = base_table$ord)
-  wl_mid_outputs <-mod_main_table_server("wl_mid", login_outputs$credentials, df_raw = base_table$tbl, ord = base_table$ord)
-  wl_fwd_outputs <-mod_main_table_server("wl_fwd", login_outputs$credentials, df_raw = base_table$tbl, ord = base_table$ord)
+  wl_gkp_outputs <-mod_main_table_server("wl_gkp", login_outputs$credentials, df_raw = base_table_gkp$tbl, ord = base_table_gkp$ord)
+  wl_def_outputs <-mod_main_table_server("wl_def", login_outputs$credentials, df_raw = base_table_def$tbl, ord = base_table_def$ord)
+  wl_mid_outputs <-mod_main_table_server("wl_mid", login_outputs$credentials, df_raw = base_table_mid$tbl, ord = base_table_mid$ord)
+  wl_fwd_outputs <-mod_main_table_server("wl_fwd", login_outputs$credentials, df_raw = base_table_fwd$tbl, ord = base_table_fwd$ord)
 
-  selected_players <- list(
+
+  base_tables_list <- list(
+    "all" = base_table$tbl,
+    "gkp" = base_table_gkp$tbl,
+    "def" = base_table_def$tbl,
+    "mid" = base_table_mid$tbl,
+    "fwd" = base_table_fwd$tbl
+  )
+
+  selected_players_list <- list(
     "all" = watchlist_outputs$selected_players,
     "gkp" = wl_gkp_outputs$selected_players,
     "def" = wl_def_outputs$selected_players,
@@ -30,7 +55,7 @@ app_server <- function(input, output, session) {{
     "fwd" = wl_fwd_outputs$selected_players
   )
 
-  orders <- list(
+  orders_list <- list(
     "all" = watchlist_outputs$order,
     "gkp" = wl_gkp_outputs$order,
     "def" = wl_def_outputs$order,
@@ -38,10 +63,14 @@ app_server <- function(input, output, session) {{
     "fwd" = wl_fwd_outputs$order
   )
 
-  mod_player_statistics_server("statistics", login_outputs$credentials, sel = watchlist_outputs$selected_players,
-                               df = base_table)
+  selected_tab <- reactive({
+    input$tbstMainTable
+  })
 
-  title_bar_outputs <- mod_title_bar_server("header", con = login_outputs$con, credentials = login_outputs$credentials, df_watchlist = watchlist_outputs$order)
+  mod_player_statistics_server("statistics", login_outputs$credentials, sel_list = selected_players_list,
+                               df_list = base_tables_list, table_option = selected_tab)
+
+  title_bar_outputs <- mod_title_bar_server("header", con = login_outputs$con, credentials = login_outputs$credentials, df_watchlist_list = orders_list)
 
   # TODO this isn't working
   # session$onSessionEnded(function() {

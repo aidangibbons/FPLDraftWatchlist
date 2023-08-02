@@ -29,7 +29,7 @@ mod_player_statistics_ui <- function(id){
 #' @import rlang
 #' @importFrom gtExtras img_header
 #' @importFrom shinyWidgets materialSwitch
-mod_player_statistics_server <- function(id, credentials, sel, df){
+mod_player_statistics_server <- function(id, credentials, sel_list, df_list, table_option){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
@@ -69,6 +69,11 @@ mod_player_statistics_server <- function(id, credentials, sel, df){
     output$tblSelectedPlayers <- render_gt({
       req(credentials()$user_auth)
 
+      tab <- table_option()
+
+      sel <- sel_list[[tab]]
+      df <- df_list[[tab]]
+
       print_debug("player statistics render gt entered")
       sel_id <- sel()
 
@@ -91,7 +96,7 @@ mod_player_statistics_server <- function(id, credentials, sel, df){
       #                     animType = "fade"))
       # }
 
-      filtered_df <- df$tbl %>%
+      filtered_df <- df %>%
         # slice(df$ord()) %>%
         mutate(img = url_player_image(code)) %>%
         select(web_name, img,
