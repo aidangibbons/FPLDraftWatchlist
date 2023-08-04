@@ -15,4 +15,4 @@ golem::detach_all_attached()
 golem::document_and_reload()
 
 # Run the application
-run_app(options = c("port" = 29225))
+run_app(options = list(launch.browser = TRUE, "port" = 29225))

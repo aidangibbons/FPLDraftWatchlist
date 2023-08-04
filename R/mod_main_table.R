@@ -21,7 +21,7 @@ mod_main_table_ui <- function(id){
 #' @importFrom DT renderDT datatable JS dataTableProxy formatStyle
 #' @importFrom yaml read_yaml
 #' @import dplyr
-mod_main_table_server <- function(id, credentials, df_raw, ord){
+mod_main_table_server <- function(id, credentials, df_raw, ord, drafted_ids = reactiveVal(NULL)){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
 
@@ -45,7 +45,9 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
     })
 
     df_tbl <- df_raw %>%
-      select(test, rank, draft_rank, web_name, position, team_name_short)
+      select(test,
+             # id,
+             rank, draft_rank, web_name, position, team_name_short)
 
     df <- reactiveVal(df_tbl)
     slct <- reactiveVal(NULL)
@@ -54,6 +56,32 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
     max_rows <- 3
     selectable_col = 4
     editable_col = 2
+
+    observe({
+      req(!is.null(drafted_ids()))
+      print_debug("update table drafted IDs")
+
+      drafted_tbl <- tibble(
+        id = drafted_ids(),
+        drafted = "Yes"
+      )
+
+      out_df <- df_raw %>%
+        left_join(drafted_tbl, by = "id") %>%
+        mutate(drafted = ifelse(is.na(drafted), "No", drafted)) %>%
+        filter(drafted == "No") %>%
+        select(test,
+               # id,
+               rank, draft_rank, web_name, position, team_name_short)
+
+      out <- list(
+        df = out_df,
+        sel = NULL,
+        dont_update_proxy = F
+      )
+
+      df_update(out)
+    })
 
     observeEvent(ord(), {
       req(credentials()$user_auth)
@@ -106,12 +134,16 @@ mod_main_table_server <- function(id, credentials, df_raw, ord){
 
       req(credentials()$user_auth)
       print_debug("create main table DT")
+
       df_tbl %>%
         slice(ord()) %>%
         mutate(rank = 1:n()) %>%
+        mutate(team_name_short = factor(team_name_short)) %>%
+        mutate(position = factor(position)) %>%
+        # select(-id) %>%
         datatable(
           escape = F,
-          filter = "none",
+          filter = list(position = 'top', clear = TRUE, plain = FALSE),
           colnames = c(NULL, "", "Ranking", "Draft Rank", "Player", "Position", "Team"),
           selection = list(mode = "multiple", target = "cell",
                            selectable = cbind(1:nrow(df_tbl), rep(selectable_col, nrow(df_tbl)))),

@@ -141,11 +141,11 @@ set_config_variables <- function () {
 
 
 url_league_details <- function (league) {paste0("https://draft.premierleague.com/api/league/", league, "/details")}
-url_league_player_status <- function (league) {paste0("https://draft.premierleague.com/api/league/", league_id, "/element-status")}
+url_league_player_status <- function (league) {paste0("https://draft.premierleague.com/api/league/", league, "/element-status")}
 url_league_trades <- function (league) {paste0("https://draft.premierleague.com/api/draft/league/",
                                                league_id, "/trades")}
-url_league_transactions <- function (league) {paste0("https://draft.premierleague.com/api/draft/league/", league_id, "/transactions")}
-url_league_draft_picks <- function (league) {paste0("https://draft.premierleague.com/api/draft/", league_id, "/choices")}
+url_league_transactions <- function (league) {paste0("https://draft.premierleague.com/api/draft/league/", league, "/transactions")}
+url_league_draft_picks <- function (league) {paste0("https://draft.premierleague.com/api/draft/", league, "/choices")}
 
 url_team_details <- function (team_id) {paste0("https://draft.premierleague.com/api/entry/", team_id, "/public")}
 url_team_gw <- function (team_id, gw_id) {paste0("https://draft.premierleague.com/api/entry/", team_id, "/event/", gw_id)}
@@ -213,6 +213,118 @@ get_current_gw <- function () {
     gw
   }
 }
+table_live_draft_picks <- function (league, plot_table = F) {
+  bs_static <- url_bootstrap_static %>%
+    get_url_data()
+
+  current_picks <- league %>%
+    url_league_draft_picks %>%
+    get_url_data() %>%
+    {.$choices} %>%
+    tibble
+
+  player_details <- get_player_details(bs_static) %>%
+    select(web_name, id, code, first_name, second_name, position)
+
+  picks_with_players <- current_picks %>%
+    mutate(player_name = paste(player_first_name, str_sub(player_last_name, 1, 1))) %>%
+    left_join(player_details %>%
+                select(web_name, id, code, position), by = c("element" = "id"))
+
+  chosen_players <- picks_with_players %>%
+    arrange(index) %>%
+    group_by(entry) %>%
+    mutate(pick_order = first(index)) %>%
+    ungroup %>%
+    select(player_name, web_name, round) %>%
+    rename("R" = round) %>%
+    pivot_wider(names_from = player_name,
+                values_from = web_name)
+
+  # table of which positions have been taken
+  bootstrap_squad <- bs_static$settings$squad
+
+  req_pos_df <- tibble(position =
+                         c(rep("GKP", bootstrap_squad$select_GKP),
+                           rep("DEF", bootstrap_squad$select_DEF),
+                           rep("MID", bootstrap_squad$select_MID),
+                           rep("FWD", bootstrap_squad$select_FWD))
+  ) %>%
+    group_by(position) %>%
+    mutate(selection = 1:n()) %>%
+    ungroup
+
+  players_position_picks <- picks_with_players %>%
+    group_by(player_name, position) %>%
+    mutate(selection = 1:n()) %>%
+    ungroup %>%
+    select(player_name, position, selection, web_name) %>%
+    pivot_wider(names_from = player_name,
+                values_from = web_name)
+
+  positions_df <- req_pos_df %>%
+    left_join(players_position_picks,
+              by = c("position", "selection")) %>%
+    rename("Pos" = position) %>%
+    select(-selection)
+
+  last_pick <- picks_with_players %>%
+    filter(!is.na(element)) %>%
+    slice(n()) %>%
+    left_join(player_details %>%
+                select(first_name, second_name, id), by = c("element" = "id"))
+
+  last_change <- picks_with_players %>%
+    filter(!is.na(choice_time)) %>%
+    slice(n()) %>%
+    pull(choice_time) %>%
+    as_datetime()
+
+
+  calc_time_diff <- abs(as.numeric(int_diff(c(Sys.time(), last_change + hours(1)))))
+
+  last_pick_text <- glue("{toupper(last_pick$player_first_name)} chose {toupper(last_pick$web_name)}")
+
+
+  if (plot_table) {
+
+    return(grid.arrange(chosen_players %>% tableGrob(),
+                        last_pick_text %>% tableGrob(),
+                        calc_time_diff %>% tableGrob()))
+  }
+
+  # get the image file for the latest address
+  latest_player_id <- picks_with_players %>%
+    filter(!is.na(choice_time)) %>%
+    slice(n()) %>%
+    pull(element)
+
+  next_player <- picks_with_players %>% filter(is.na(choice_time)) %>% slice(1) %>%
+    pull(player_name)
+
+  next_pick <- if (length(next_player) != 0) {
+    paste0("Next Pick:<br/>", next_player)
+  } else {
+    "Draft is complete!"
+  }
+
+  status <- if (length(next_player) != 0) {
+    "ongoing"
+  } else {
+    "complete"
+  }
+
+  latest_player_img_file <- last_pick$code %>% url_player_image
+
+  return(list("picks" = chosen_players,
+              "latest" = last_pick_text,
+              "positions" = positions_df,
+              "last_change" = calc_time_diff,
+              "img" = latest_player_img_file,
+              "next_pick" = next_pick,
+              "status" = status,
+              "drafted_ids" = current_picks %>% select(element) %>% drop_na %>% pull(element)))
+}
 
 # General functions ####
 img_uri <- function (x, height = 20, local = F) {
@@ -229,3 +341,5 @@ print_debug <- function (t, loc = is_local) {
     print(t)
   }
 }
+
+

@@ -19,6 +19,7 @@ Imports:
     gtExtras,
     jsonlite,
     knitr,
+    lubridate,
     magrittr,
     purrr,
     rlang,

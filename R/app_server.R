@@ -10,6 +10,9 @@ app_server <- function(input, output, session) {{
 
   login_outputs <- mod_login_server("login")
 
+  # reactive val for already drafted players
+  drafted_players <- reactiveVal(NULL)
+
   output$uiMainTableTabs <- renderUI({
     req(login_outputs$credentials()$user_auth)
     tagList(
@@ -32,11 +35,11 @@ app_server <- function(input, output, session) {{
   base_table_mid <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "mid", saved_wl = login_outputs$saved_watchlist)
   base_table_fwd <- mod_load_player_dataset_server("load_data", con = login_outputs$con, credentials = login_outputs$credentials, pos_filt = "fwd", saved_wl = login_outputs$saved_watchlist)
 
-  watchlist_outputs <- mod_main_table_server("watchlist", login_outputs$credentials, df_raw = base_table$tbl, ord = base_table$ord)
-  wl_gkp_outputs <-mod_main_table_server("wl_gkp", login_outputs$credentials, df_raw = base_table_gkp$tbl, ord = base_table_gkp$ord)
-  wl_def_outputs <-mod_main_table_server("wl_def", login_outputs$credentials, df_raw = base_table_def$tbl, ord = base_table_def$ord)
-  wl_mid_outputs <-mod_main_table_server("wl_mid", login_outputs$credentials, df_raw = base_table_mid$tbl, ord = base_table_mid$ord)
-  wl_fwd_outputs <-mod_main_table_server("wl_fwd", login_outputs$credentials, df_raw = base_table_fwd$tbl, ord = base_table_fwd$ord)
+  watchlist_outputs <- mod_main_table_server("watchlist", login_outputs$credentials, df_raw = base_table$tbl, ord = base_table$ord, drafted_ids = drafted_players)
+  wl_gkp_outputs <-mod_main_table_server("wl_gkp", login_outputs$credentials, df_raw = base_table_gkp$tbl, ord = base_table_gkp$ord, drafted_ids = drafted_players)
+  wl_def_outputs <-mod_main_table_server("wl_def", login_outputs$credentials, df_raw = base_table_def$tbl, ord = base_table_def$ord, drafted_ids = drafted_players)
+  wl_mid_outputs <-mod_main_table_server("wl_mid", login_outputs$credentials, df_raw = base_table_mid$tbl, ord = base_table_mid$ord, drafted_ids = drafted_players)
+  wl_fwd_outputs <-mod_main_table_server("wl_fwd", login_outputs$credentials, df_raw = base_table_fwd$tbl, ord = base_table_fwd$ord, drafted_ids = drafted_players)
 
 
   base_tables_list <- list(
@@ -72,6 +75,9 @@ app_server <- function(input, output, session) {{
 
   title_bar_outputs <- mod_title_bar_server("header", con = login_outputs$con, credentials = login_outputs$credentials, df_watchlist_list = orders_list)
 
+  observe({
+    drafted_players(title_bar_outputs$pickList()$drafted_ids)
+  })
   # TODO this isn't working
   # session$onSessionEnded(function() {
   #   save_on_close(con = login_outputs$con, credentials = login_outputs$credentials,
